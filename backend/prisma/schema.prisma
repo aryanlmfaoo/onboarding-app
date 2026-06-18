@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id          String @id @default(uuid(7))
+  name        String
+  logoUrl     String
+  description String
+  ownerId     String
+
+  employees Employee[]
+  projects  Project[]
+
+  organizationRequests OrganizationRequests[]
+}
+
+model Employee {
+  id                String @id @default(uuid(7))
+  profilePictureUrl String
+  firstName         String
+  lastName          String
+  email             String @unique
+  passwordHash      String
+
+  organizationId String?
+  level          EMPLOYEE_LEVEL?
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  projectMemberships ProjectEmployee[]
+
+  organizationRequests OrganizationRequests[]
+
+  tokens tokens[]
+}
+
+model Project {
+  id String @id @default(uuid(7))
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  members ProjectEmployee[]
+}
+
+model ProjectEmployee {
+  employeeId String
+  projectId  String
+
+  level PROJECT_EMPLOYEE_LEVEL
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+  project  Project  @relation(fields: [projectId], references: [id])
+
+  @@id([employeeId, projectId])
+}
+
+model OrganizationRequests {
+  employeeId     String
+  organizationId String
+  status         REQUEST_STATUS
+
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, employeeId])
+}
+
+model tokens {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  Employee         Employee @relation(fields: [userId], references: [id])
+  refreshTokenHash String
+}
+
+enum EMPLOYEE_LEVEL {
+  OWNER
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum PROJECT_EMPLOYEE_LEVEL {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum REQUEST_STATUS {
+  ACCEPTED
+  REJECTED
+  PENDING
+}
