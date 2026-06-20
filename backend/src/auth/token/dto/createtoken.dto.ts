@@ -10,9 +10,6 @@ export class createTokenDto {
   id: string;
 
   @IsString()
-  level: string;
-
-  @IsString()
   @IsNotEmpty()
   firstName: string;
 

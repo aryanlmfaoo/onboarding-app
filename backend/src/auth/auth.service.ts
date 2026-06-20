@@ -6,6 +6,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import crypto from 'crypto';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PasswordService } from './password/password.service.js';
 import { registerUserDto } from './dto/registeruser.dto.js';
@@ -13,7 +14,6 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { loginUserDto } from './dto/loginuser.dto.js';
 import { TokenService } from './token/token.service.js';
 import { refreshTokenDto } from './dto/refreshtoken.dto';
-import crypto from 'crypto';
 
 @Injectable()
 export class AuthService {

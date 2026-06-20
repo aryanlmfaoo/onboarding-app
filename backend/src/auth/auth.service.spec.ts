@@ -6,7 +6,10 @@ describe('AuthService - LoginUser', () => {
 
   const prismaMock = { getDataForLogin: jest.fn() };
   const passwordMock = { comparePassword: jest.fn() };
-  const tokenMock = { getDataForLogin: jest.fn(), createAndSaveTokens : jest.fn() };
+  const tokenMock = {
+    getDataForLogin: jest.fn(),
+    createAndSaveTokens: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

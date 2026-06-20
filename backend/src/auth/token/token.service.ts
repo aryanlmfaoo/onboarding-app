@@ -4,6 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import crypto from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import accessPayload from '../types/accesstoken.type';
+import refreshPayload from '../types/refreshtoken.type';
 
 @Injectable()
 export class TokenService {
@@ -20,15 +22,14 @@ export class TokenService {
    * Creates new JWT Tokens and saves them in the DB.
    */
   async createAndSaveTokens(createTokenDto: createTokenDto) {
-    const refreshPayload = {
+    const refreshPayload: refreshPayload = {
       email: createTokenDto.email,
       id: createTokenDto.id,
     };
 
-    const accessPayload = {
+    const accessPayload: accessPayload = {
       email: createTokenDto.email,
       id: createTokenDto.id,
-      level: createTokenDto.level,
       firstName: createTokenDto.firstName,
       profilePictureUrl: createTokenDto.profilePictureUrl,
       lastName: createTokenDto.lastName,

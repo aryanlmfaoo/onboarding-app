@@ -10,6 +10,7 @@ export class AuthController {
 
   /**
    * @param registerUserDto
+   * Method: POST
    * Path: /auth/register
    */
   @Post('register')
@@ -20,19 +21,23 @@ export class AuthController {
 
   /**
    * @param userLoginDto : userLoginDto
+   * Method: POST
    * Path: /auth/login
    */
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async loginUser(@Body() userLoginDto: loginUserDto) {
     return await this.authService.loginUser(userLoginDto);
   }
 
   /**
    * @param refreshTokenDto
+   * Method: POST
    * Path: /auth/refresh
    */
   @Post('refresh')
-  async refreshToken(refreshTokenDto: refreshTokenDto) {
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(@Body() refreshTokenDto: refreshTokenDto) {
     return await this.authService.refreshToken(refreshTokenDto);
   }
 }
