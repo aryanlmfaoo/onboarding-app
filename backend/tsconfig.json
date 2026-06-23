@@ -19,6 +19,14 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@app/dbconfig": [
+        "libs/dbconfig/src"
+      ],
+      "@app/dbconfig/*": [
+        "libs/dbconfig/src/*"
+      ]
+    }
   }
 }
