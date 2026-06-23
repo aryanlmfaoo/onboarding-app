@@ -28,7 +28,7 @@ export class OrganizationController {
    */
   @UseGuards(JwtAuthGuard)
   @Post('')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.CREATED)
   async createNewOrganization(
     @GetUser() user: accessPayload,
     @Body() createNewOrgDto: createNewOrgDto,
@@ -52,8 +52,8 @@ export class OrganizationController {
   async addEmployeeToken(
     @Body() addEmployeeTokenDto: addEmployeeTokenDto,
     @GetUser() user: accessPayload,
-  ): Promise<void> {
-    await this.organizationService.addEmployeeEntryToken(
+  ) {
+    return await this.organizationService.addEmployeeEntryToken(
       addEmployeeTokenDto,
       user,
     );
@@ -72,7 +72,7 @@ export class OrganizationController {
     @Body() addEmployeeToOrganizationDto: addEmployeeToOrganizationDto,
     @GetUser() user: accessPayload,
   ) {
-    await this.organizationService.addEmployeeToOrganization(
+    return await this.organizationService.addEmployeeToOrganization(
       addEmployeeToOrganizationDto,
       user,
     );
@@ -88,8 +88,8 @@ export class OrganizationController {
   @Post('project')
   @HttpCode(HttpStatus.CREATED)
   async createNewProject(
-    createNewProjectDto: createNewProjectDto,
-    user: accessPayload,
+    @Body() createNewProjectDto: createNewProjectDto,
+    @GetUser() user: accessPayload,
   ) {
     return await this.organizationService.createNewProject(
       createNewProjectDto,
@@ -101,14 +101,14 @@ export class OrganizationController {
    * @param addEmployeeToProjectDto
    * @param user
    * Method: POST
-   * Path: /org/project/add
+   * Path: /org/project/member
    */
   @UseGuards(JwtAuthGuard)
-  @Post('project/add')
+  @Post('project/member')
   @HttpCode(HttpStatus.OK)
   async addEmployeeToProject(
-    addEmployeeToProjectDto: addEmployeeToProjectDto,
-    user: accessPayload,
+    @Body() addEmployeeToProjectDto: addEmployeeToProjectDto,
+    @GetUser() user: accessPayload,
   ) {
     return await this.organizationService.addEmployeeToProject(
       addEmployeeToProjectDto,

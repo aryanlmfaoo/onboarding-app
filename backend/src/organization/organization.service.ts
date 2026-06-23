@@ -34,14 +34,14 @@ export class OrganizationService {
       Record<PROJECT_EMPLOYEE_LEVEL, PROJECT_EMPLOYEE_LEVEL[]>
     > = {
       OWNER: ['ADMIN', 'EDITOR', 'VIEWER'],
-      ADMIN: ['EDITOR', 'VIEWER'],
+      ADMIN: ['VIEWER'],
     };
 
     const ALLOWED_ORG_ROLES: Partial<
       Record<EMPLOYEE_LEVEL, PROJECT_EMPLOYEE_LEVEL[]>
     > = {
       OWNER: ['ADMIN', 'EDITOR', 'VIEWER'],
-      ADMIN: ['ADMIN', 'EDITOR', 'VIEWER'],
+      ADMIN: ['EDITOR', 'VIEWER'],
     };
     if (ALLOWED_ORG_ROLES[userOrgLevel]?.includes(employeeToBeAddedLevel)) {
       return true;
@@ -104,7 +104,9 @@ export class OrganizationService {
       throw new ForbiddenException('You are not a member of any organization.');
     }
 
-    if (userData.level === 'EMPLOYEE') {
+    const allowedRoles: EMPLOYEE_LEVEL[] = ['OWNER', 'ADMIN', 'MANAGER'];
+
+    if (allowedRoles.includes(userData.level)) {
       throw new ForbiddenException(
         'You do not have the power to create a new project.',
       );
@@ -139,13 +141,13 @@ export class OrganizationService {
     if (!userData.organizationId || !userData.level)
       throw new ForbiddenException('You are not a member of any organization.');
 
-    if (userData.projectMemberships.length === 0)
+    if (userData.employeeProjects.length === 0)
       throw new ForbiddenException('You are not a member of this group.');
 
     if (
       !this.canUserAddEmployee(
         userData.level,
-        userData.projectMemberships[0].level,
+        userData.employeeProjects[0].level,
         addEmployeeToProjectDto.level,
       )
     )
@@ -153,10 +155,32 @@ export class OrganizationService {
         'You do not have the power to add the employee with the given permission.',
       );
 
+    const userToBeAddedData = await this.prismaService.getUserById(
+      addEmployeeToProjectDto.userToBeAdded.trim(),
+    );
+
+    if (!userToBeAddedData) {
+      throw new NotFoundException(
+        'The user you are trying to add does not exist.',
+      );
+    }
+
+    if (userToBeAddedData.organizationId !== userData.organizationId) {
+      throw new ForbiddenException(
+        'The user you are trying to add is not a member of this organization.',
+      );
+    }
+
+    if (userToBeAddedData.id === userData.id) {
+      throw new ForbiddenException('You are already a member of this project.');
+    }
+
     await this.prismaService.addEmployeeToProject(
+      userData.id,
       addEmployeeToProjectDto.userToBeAdded.trim(),
       addEmployeeToProjectDto.projectId.trim(),
       addEmployeeToProjectDto.level,
+      userData.organizationId,
     );
 
     // TODO notify everyone.
@@ -191,7 +215,6 @@ export class OrganizationService {
     const allowedRoles: Record<string, string[]> = {
       OWNER: ['ADMIN', 'MANAGER', 'EMPLOYEE'],
       ADMIN: ['MANAGER', 'EMPLOYEE'],
-      MANAGER: ['EMPLOYEE'],
     };
 
     if (
@@ -204,15 +227,22 @@ export class OrganizationService {
 
     const admissionToken = crypto.randomUUID().toString();
 
-    await this.prismaService.saveEmployeeToken(
+    const tokenData = await this.prismaService.saveEmployeeToken(
       userData.organizationId,
       admissionToken,
       addEmployeeTokenDto.permissionType,
     );
 
+    if (!tokenData) {
+      throw new HttpException(
+        'An internal error occurred.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
     // #TODO: send it in notifications to the person
 
-    return admissionToken;
+    return { token: tokenData.token };
   }
 
   /**
@@ -226,9 +256,23 @@ export class OrganizationService {
   ) {
     this.logger.log(`Adding user ${user.id} to organization`);
 
+    const userData = await this.prismaService.getUserById(user.id);
+
+    if (!userData) {
+      throw new NotFoundException('Please log in again.');
+    }
+
+    if (userData.organizationId) {
+      throw new ForbiddenException(
+        'You are already a member of an organization. Leave the organization before joining a new one.',
+      );
+    }
+
     const tokenData = await this.prismaService.fetchAdmissionToken(
       addEmployeeToOrganizationDto.admissionToken.trim(),
     );
+
+    console.log(tokenData);
 
     // if token is not found, return error
     if (!tokenData) {

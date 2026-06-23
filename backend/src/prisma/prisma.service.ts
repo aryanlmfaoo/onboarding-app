@@ -2,14 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
-  PrismaClient,
   EMPLOYEE_LEVEL,
+  PrismaClient,
   PROJECT_EMPLOYEE_LEVEL,
 } from '../../generated/prisma/client.js';
 import { createNewUserDto } from './dto/newuser.dto.js';
 import { createOrganizationDto } from './dto/neworganization.dto.js';
-import { create } from 'node:domain';
-import { Prisma } from '@prisma/client/extension';
+import { UploadFileDto } from './dto/uploadfile.dto';
 
 const connectionString = `${process.env.DATABASE_URL}`;
 
@@ -29,14 +28,14 @@ export class PrismaService extends PrismaClient {
    * @param id
    * Fetch user data by id
    */
-  getUserById(id: string) {
+  async getUserById(id: string) {
     return this.user.findUnique({ where: { id } });
   }
 
   async getUserAndProjectById(userId: string, projectId: string) {
     return this.user.findUnique({
       where: { id: userId },
-      include: { projectMemberships: { where: { projectId: projectId } } },
+      include: { employeeProjects: { where: { projectId: projectId } } },
     });
   }
 
@@ -96,11 +95,38 @@ export class PrismaService extends PrismaClient {
    */
   async fetchAdmissionToken(token: string) {
     this.logger.log(`Fetching admission token: ${token}`);
-    const tokenData = await this.admissionTokens.findUnique({
+    const tokenData = await this.admissionTokens.findFirst({
       where: { token },
     });
-    this.logger.log(`Found admission token: ${token}`);
+    if (tokenData) this.logger.log(`Found admission token: ${token}`);
+    else this.logger.log(`Could not find admission token: ${token}`);
     return tokenData;
+  }
+
+  async getDataForDocumentUpload(
+    userId: string,
+    projectId: string,
+    orgId: string,
+  ) {
+    this.logger.log(`Fetching data for document upload for user: ${userId}`);
+    const data = await this.user.findUnique({
+      where: {
+        id: userId,
+      },
+      include: {
+        employeeProjects: {
+          where: {
+            projectId: projectId,
+            employeeId: userId,
+            organizationId: orgId,
+          },
+        },
+      },
+    });
+    this.logger.log(
+      `Done fetching data for document upload for user: ${userId}`,
+    );
+    return data;
   }
 
   // =============================================================== CREATING NEW DATA IN THE DB ===============================================================
@@ -180,7 +206,7 @@ export class PrismaService extends PrismaClient {
   ) {
     this.logger.log(`Saving admission token for org ${orgId}`);
 
-    const newToken = await this.admissionTokens.create({
+    return this.admissionTokens.create({
       data: {
         organizationId: orgId,
         token: token,
@@ -188,7 +214,6 @@ export class PrismaService extends PrismaClient {
         expiresAt: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
-    return { id: newToken.id };
   }
 
   /**
@@ -212,11 +237,14 @@ export class PrismaService extends PrismaClient {
         name: name,
         description: description,
         organizationId: orgId,
+        ownerId: userId,
         members: {
           create: [
             {
               employeeId: userId,
               level: EMPLOYEE_LEVEL.OWNER,
+              organizationId: orgId,
+              addedBy: userId,
             },
           ],
         },
@@ -227,9 +255,11 @@ export class PrismaService extends PrismaClient {
   }
 
   async addEmployeeToProject(
+    addedById: string,
     employeeId: string,
     projectId: string,
     projLevel: PROJECT_EMPLOYEE_LEVEL,
+    orgId: string,
   ) {
     return this.projectEmployee.upsert({
       where: {
@@ -239,10 +269,36 @@ export class PrismaService extends PrismaClient {
         employeeId: employeeId,
         projectId: projectId,
         level: projLevel,
+        organizationId: orgId,
+        addedBy: addedById,
       },
       update: { employeeId: employeeId },
     });
   }
+
+  async uploadDocumentMetaData(fileData: UploadFileDto) {
+    this.logger.log(
+      `Adding documentMetaData for project ${fileData.projId} by ${fileData.uploadedBy}`,
+    );
+
+    await this.documentMetaData.create({
+      data: {
+        id: fileData.id,
+        organizationId: fileData.orgId,
+        projectId: fileData.projId,
+        filename: fileData.filename,
+        fileSize: fileData.fileSize,
+        mimeType: fileData.mimeType,
+        uploadedBy: fileData.uploadedBy,
+        objectKey: fileData.objectKey,
+      },
+    });
+
+    this.logger.log(
+      `Added documentMetaData for project ${fileData.projId} by ${fileData.uploadedBy}`,
+    );
+  }
+
   // =============================================================== UPDATING OLD DATA IN THE DB ===============================================================
 
   /**
@@ -262,5 +318,12 @@ export class PrismaService extends PrismaClient {
       data: { organizationId: orgId, level: permissionLevel },
     });
     this.logger.log(`Added user:${userId} to org:${orgId}`);
+  }
+
+  async markDocumentAsUploaded(id: string) {
+    return this.documentMetaData.update({
+      where: { id: id, status: 'NOTUPLOADED' },
+      data: { status: 'UNPROCESSED' },
+    });
   }
 }

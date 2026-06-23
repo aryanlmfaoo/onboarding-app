@@ -17,12 +17,16 @@ model Organization {
   name        String
   logoUrl     String
   description String
-  ownerId     String
+  ownerId     String @unique
 
   employees User[]
   projects  Project[]
 
   admissionTokens admissionTokens[]
+
+  documents documentMetaData[]
+
+  projectEmployees ProjectEmployee[]
 }
 
 model User {
@@ -38,9 +42,15 @@ model User {
 
   organization Organization? @relation(fields: [organizationId], references: [id])
 
-  projectMemberships ProjectEmployee[]
-
   tokens jwtTokens[]
+
+  projects Project[]
+
+  documentsUploaded documentMetaData[]
+
+  employeeProjects ProjectEmployee[] @relation("EmployeeProjects")
+
+  employeesUserAddedToProjects ProjectEmployee[] @relation("AddedProjects")
 }
 
 model Project {
@@ -49,22 +59,33 @@ model Project {
   name           String
   description    String
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  ownerId        String
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  owner        User         @relation(fields: [ownerId], references: [id])
 
   members ProjectEmployee[]
+
+  documents documentMetaData[]
+
+  createdAt DateTime @default(now())
 }
 
 model ProjectEmployee {
-  employeeId String
-  projectId  String
+  employeeId     String
+  projectId      String
+  organizationId String
+  addedBy        String
 
   level PROJECT_EMPLOYEE_LEVEL
 
-  employee User    @relation(fields: [employeeId], references: [id])
-  project  Project @relation(fields: [projectId], references: [id])
+  project Project      @relation(fields: [projectId], references: [id])
+  org     Organization @relation(fields: [organizationId], references: [id])
+
+  employee       User @relation("EmployeeProjects", fields: [employeeId], references: [id])
+  personWhoAdded User @relation("AddedProjects", fields: [addedBy], references: [id])
 
   @@id([employeeId, projectId])
-  @@unique([employeeId, projectId])
 }
 
 model jwtTokens {
@@ -84,6 +105,26 @@ model admissionTokens {
   org Organization @relation(fields: [organizationId], references: [id])
 }
 
+model documentMetaData {
+  id             String @id @default(uuid())
+  organizationId String
+  projectId      String
+
+  filename   String
+  objectKey  String      @unique
+  mimeType   String
+  fileSize   Int
+  status     FILE_STATUS @default(NOTUPLOADED)
+  uploadedBy String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  org      Organization @relation(fields: [organizationId], references: [id])
+  project  Project      @relation(fields: [projectId], references: [id])
+  uploader User         @relation(fields: [uploadedBy], references: [id])
+}
+
 enum EMPLOYEE_LEVEL {
   OWNER
   ADMIN
@@ -96,4 +137,12 @@ enum PROJECT_EMPLOYEE_LEVEL {
   ADMIN
   EDITOR
   VIEWER
+}
+
+enum FILE_STATUS {
+  NOTUPLOADED
+  PROCESSED
+  UNPROCESSED
+  FAILED
+  PROCESSING
 }
